@@ -1,4 +1,4 @@
-RUN: CONFIGURE UTILITIES NOMAD MICRO ROUTER DOCKER COMPLETE
+RUN: CONFIGURE UTILITIES NOMAD MICRO ROUTER DNS DOCKER COMPLETE
 
 CONFIGURE:
 	mkdir ${HOME}/bin;
@@ -20,6 +20,15 @@ MICRO:
 	cd ${HOME}/bin/;curl https://getmic.ro | bash
 
 
+SNORT:
+	echo "Installing snort."
+	
+	
+DNS:
+	echo "Setting up default DNS"
+	echo 'nameserver 1.1.1.1' >> /etc/resolvconf/resolv.conf.d/base
+	sudo reboot
+		
 ROUTER:
 #https://www.instructables.com/id/Use-Raspberry-Pi-3-As-Router/ guide for wlan - replace with eth1
 #	echo "Setting up eth0 - eth1 route settings"
