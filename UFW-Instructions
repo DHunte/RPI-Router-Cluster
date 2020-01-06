@@ -1,0 +1,11 @@
+
+sudo apt-get install ufw
+
+###append the following lines to /etc/ufw/before.rules
+
+  1. -A ufw-before-output -p icmp -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+  2. -A ufw-before-output -p icmp -m state --state ESTABLISHED,RELATED -j ACCEPT
+  3. ufw allow 53/tcp
+  4. ufw allow 53/udp
+  5. ufw allow 67/udp
+  6. ufw allow 68/udp
