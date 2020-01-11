@@ -1,6 +1,9 @@
 This project aims to create a script to set up an RPI as an ethernet passthrough, this allows
 users to apply configurations such as firewall and DNS to devices connected to eth1
 
+### general config
+Install unattended-upgrades for security
+	1. sudo apt-get install unattended-upgrades
 
 ### Bridge network
 There are some assumptions whilst running this script:
