@@ -1,59 +1,70 @@
-RUN: CONFIGURE UTILITIES NOMAD MICRO ROUTER DNS DOCKER COMPLETE
+RUN: ROUTER DNS
 
-CONFIGURE:
-	mkdir ${HOME}/bin;
-
-#installs all requirements for the other steps
-UTILITIES:
-	sudo apt-get update
-	sudo apt-get upgrade
-	sudo apt-get install -y xarchiver bridge-utils
-	sudo reboot
-
-	
-NOMAD:
-	cd ${HOME}/bin;wget https://releases.hashicorp.com/nomad/0.9.1/nomad_0.9.1_linux_arm.zip
-	cd ${HOME}/bin;unzip nomad_0.9.1_linux_arm.zip
-
-	
-MICRO:
-	cd ${HOME}/bin/;curl https://getmic.ro | bash
-
-
-SNORT:
-	echo "Installing snort."
-	
-	
 DNS:
-	echo "Setting up default DNS"
-	echo 'nameserver 1.1.1.1' >> /etc/resolvconf/resolv.conf.d/base
+	echo "Setting up coreDNS"
+	sudo wget https://github.com/coredns/coredns/releases/download/v1.6.9/coredns_1.6.9_linux_arm.tgz
+	sudo tar -xvzf coredns_1.6.9_linux_arm.tgz
+	sudo cat > Corefile <<EOF
+	. {
+	    hosts {
+		192.168.4.1 customRPI.com
+		fallthrough
+	    }
+	    forward . 8.8.8.8
+	    errors
+	    log
+	}
+	EOF
 	sudo reboot
 		
 ROUTER:
-#https://www.instructables.com/id/Use-Raspberry-Pi-3-As-Router/ guide for wlan - replace with eth1
-#	echo "Setting up eth0 - eth1 route settings"
-#	truncate -s 0 /proc/sys/net/ipv4/ip_forward#
-#	echo 1 >> /proc/sys/net/ipv4/ip_forward
-#	echo net.ipv4.ip_forward=1 >> /etc/sysctl.conf	
-#	sudo iptables -A INPUT -i lo -j ACCEPT
-#	sudo iptables -A INPUT -i eth0 -j ACCEPT
-#	sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-#	sudo iptables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
-#	sudo iptables -A FORWARD -i eth1 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT
-#	sudo iptables -A FORWARD -i eth0 -o eth1 -j ACCEPT	
-	echo "Creating bridge to eth1"
-	sudo echo 'denyinterfaces eth0' >> /etc/dhcpcd.conf
-	sudo echo 'denyinterfaces wlan0' >> /etc/dhcpcd.conf
-	sudo brctl addbr br0
-	sudo brctl addif br0 eth0
-
-	sudo echo 'auto br0' >> /etc/network/interfaces
-	sudo echo 'iface br0 inet dhcp' >> /etc/network/interfaces
-	sudo echo 'bridge_ports eth0 eth1' >> /etc/network/interfaces
-
+	echo "Setting up Router"
+	sudo -Es
+	sudo apt --autoremove purge ifupdown dhcpcd5 isc-dhcp-client isc-dhcp-common
+	sudo rm -r /etc/network /etc/dhcp
 	
-DOCKER:
-	curl -sSL https://get.docker.com | sh
+	sudo apt --autoremove purge avahi-daemon
+	sudo apt install libnss-resolve
+	sudo ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+	sudo systemctl enable systemd-resolved.service
+	sudo systemctl enable systemd-networkd.service
+
+	sudo cat > /etc/systemd/network/02-br0.netdev <<EOF
+	[NetDev]
+	Name=br0
+	Kind=bridge
+	EOF
 	
-COMPLETE:
-	sudo export PATH=${HOME/BIN}:${PATH}
+	sudo cat > /etc/systemd/network/12-br0_add-eth0.network <<EOF
+	[Match]
+	Name=eth0
+	[Network]
+	Bridge=br0
+	EOF
+	
+	sudo cat > /etc/systemd/network/16-br0_up.network <<EOF
+	[Match]
+	Name=br0
+	[Network]
+	Address=192.168.4.1/24
+	MulticastDNS=yes
+	IPMasquerade=yes
+	DHCPServer=yes
+	[DHCPServer]
+	DNS=127.0.0.1
+	EOF
+	
+	sudo -Es
+	cat > /etc/systemd/network/04-eth1.network <<EOF
+	[Match]
+	Name=eth1
+	[Network]
+	DHCP=yes
+	MulticastDNS=yes
+	EOF
+
+	sudo systemctl daemon-reload
+	sudo systemctl restart systemd-networkd.service
+	sudo system reboot
+	
+	sudo echo DNSStubListener=no > /etc/systemd/resolved.conf
